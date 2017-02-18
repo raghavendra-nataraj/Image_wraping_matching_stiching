@@ -26,7 +26,7 @@ int main(int argc, char **argv)
     if(argc < 2)
       {
 	cout << "Insufficent number of arguments; correct usage:" << endl;
-	cout << "    a2-p1 part_id ..." << endl;
+	cout << "    a2 part_id ..." << endl;
 	return -1;
       }
 
