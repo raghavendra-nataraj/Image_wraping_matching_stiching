@@ -65,6 +65,10 @@ int main(int argc, char **argv)
       {
 	// do something here!
       }
+    else if(part == "part3")
+      {
+	// do something here!
+      }
     else
       throw std::string("unknown part!");
 
