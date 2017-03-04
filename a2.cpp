@@ -122,6 +122,29 @@ int main(int argc, char **argv)
     else if(part == "part3")
       {
 	// do something here!
+	CImg<double> input_image(inputFile.c_str());
+	CImg<double> output_image(input_image.width(),input_image.height(),input_image.depth(),input_image.spectrum());
+	for(int i=0;i<input_image.width();i++){
+	  for(int j=0;j<input_image.height();j++){
+	    //int x = (0.907*i) + (0.258*j) - 182;
+	    //int y = (-0.153*i)+ (1.44*j) + 58 ;
+	    //int w = (-0.000306*i)+ (0.000731*j)+1;
+	    int x = (1.1247*i) + (-0.3147*j) + 222.9409;
+	    int y = (0.1088*i)+ (0.6851*j) - 19.9247 ;
+	    int w = (0.0003*i)+ (-0.0006*j)+1.0828;
+	    if(w!=0){
+	      x=x/w;
+	      y=y/w;
+	    }
+	    if(x>=0 && y>=0 && x<input_image.width() && y<input_image.height()){
+	      output_image(i,j,0) = input_image.atXY(x,y,0);
+	      output_image(i,j,1) = input_image.atXY(x,y,1);
+	      output_image(i,j,2) = input_image.atXY(x,y,2);
+	      }
+	  }
+	}
+	output_image.save("result.png");
+	
       }
     else
       throw std::string("unknown part!");
