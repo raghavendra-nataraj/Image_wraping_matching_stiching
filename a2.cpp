@@ -120,7 +120,7 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
       sort(scores.begin(),scores.end(),sortPoint);
       point p1 = scores[0];
       point p2 = scores[1];
-      if(p1.score/p2.score<0.5){
+      if(p1.score/p2.score<0.6){
 	const unsigned char color[] = { 255,128,64 };
 	final_image.draw_line(img1[i].col,img1[i].row,input_image.width()+p1.x,p1.y,color);
 	struct line temp = {img1[i].col,p1.x,img1[i].row,p1.y};
@@ -136,7 +136,7 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
 CImg<double> calculateHomography(CImg<double> input_image,CImg<double> input_image2){
   vector<Error> errorlist;
   vector<line> count = match2Images(input_image,input_image2);
-  for(int i=0;i<800;i++){
+  for(int i=0;i<200;i++){
     vector<int> rndLst;
     for(;rndLst.size()<4;){
       int randnum = rand()%count.size();
