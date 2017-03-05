@@ -56,14 +56,15 @@ bool sortImages(matStr i1,matStr i2){
   return i1.matches>i2.matches;
 }
 
+
 CImg<double> transform(CImg<double> input_image,CImg<double> homog){
   CImg<double> output_image(input_image.width(),input_image.height(),input_image.depth(),input_image.spectrum());
   CImg<double> inv = homog.invert(true);
   for(int i=0;i<input_image.width();i++){
     for(int j=0;j<input_image.height();j++){
-      int x = (inv(0,0)*i) + (inv(0,1)*j) + inv(0,2);
-      int y = (inv(1,0)*i)+ (inv(1,1)*j) + inv(1,2) ;
-      int w = (inv(2,0)*i)+ (inv(2,1)*j)+inv(2,2);
+      double x = (inv(0,0)*i) + (inv(1,0)*j) + inv(2,0);
+      double y = (inv(0,1)*i)+ (inv(1,1)*j) + inv(2,1) ;
+      double w = (inv(0,2)*i)+ (inv(1,2)*j)+inv(2,2);
       if(w!=0){
 	x=x/w;
 	y=y/w;
@@ -75,8 +76,23 @@ CImg<double> transform(CImg<double> input_image,CImg<double> homog){
       }
     }
   }
-  output_image.save("result.png");
+  output_image.save("result1.png");
   return output_image;
+}
+
+CImg<double> matMult(CImg<double> mat1,CImg<double> mat2){
+  CImg<double> result(mat2.width(),mat1.height(),1,1);
+  for(int i=0; i<mat1.height(); i++){
+    for(int j=0; j<mat2.width(); j++){
+      double sum=0;
+      for(int k=0; k<mat1.width(); k++){
+	sum = sum + mat1(k,i) * mat2(k,j);
+      }
+      result(i,j) = sum;
+    }
+  }
+  //cout<<result(0,0)<<" "<<result(1,0)<<" "<<result(2,0)<<" "<<result(3,0)<<" "<<result(4,0)<<" "<<result(5,0)<<" "<<result(6,0)<<" "<<result(7,0)<<endl;
+  return result;
 }
 
 vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
@@ -97,8 +113,9 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
 	  score+= ((img1[i].descriptor[k] - img2[j].descriptor[k]) * (img1[i].descriptor[k] - img2[j].descriptor[k]));
 	}
 	score = sqrt(score);
-	point p1 = {img2[j].col,img2[j].row,score};
-	scores.push_back(p1);
+	//cout<<img1[i].col<<" "<<img1[i].row<<" "<<img2[j].col<<" "<<img2[j].row<<endl;
+	point p = {img2[j].col,img2[j].row,score};
+	scores.push_back(p);
       }
       sort(scores.begin(),scores.end(),sortPoint);
       point p1 = scores[0];
@@ -106,13 +123,14 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
       if(p1.score/p2.score<0.7){
 	const unsigned char color[] = { 255,128,64 };
 	final_image.draw_line(img1[i].col,img1[i].row,input_image.width()+p1.x,p1.y,color);
-	line temp = {img1[i].col,img1[i].row,p1.x,p1.y};
+	struct line temp = {img1[i].col,p1.x,img1[i].row,p1.y};
 	lines.push_back(temp);
       }
     }
-  final_image.save("result.png");
+  //final_image.save("result.png");
   return lines;
 }
+
 
 
 
@@ -155,9 +173,10 @@ int main(int argc, char **argv)
       {
 	// do something here!
 	CImg<double> input_image(inputFile.c_str());
-	CImg<double> input_image2(argv[2]);
+	CImg<double> input_image2(argv[3]);
 	vector<Error> errorlist;
 	vector<line> count = match2Images(input_image,input_image2);
+	cout<<count.size()<<endl;
 	for(int i=0;i<200;i++){
 	  vector<int> rndLst;
 	  for(;rndLst.size()<4;){
@@ -170,49 +189,53 @@ int main(int argc, char **argv)
 	  double x3 = count[rndLst[2]].x1;double x_3 = count[rndLst[2]].x2;double y3 = count[rndLst[2]].y1;double y_3 = count[rndLst[2]].y2;
 	  double x4 = count[rndLst[3]].x1;double x_4 = count[rndLst[3]].x2;double y4 = count[rndLst[3]].y1;double y_4 = count[rndLst[3]].y2;
 	  CImg<double> mat(8,8,1,1);
-	  mat(0,0) = x1;mat(0,1) = y1;mat(0,2) = 1;mat(0,3) = 0; mat(0,4) = 0; mat(0,5) = 0;mat(0,6) = (-x1*x_1);mat(0,7) = (x_1*(-y1));
-	  mat(1,0) = 0; mat(1,1) = 0; mat(1,2) = 0;mat(1,3) = x1;mat(1,4) = y1;mat(1,5) = 1;mat(1,6) = (-x1*y_1);mat(1,7) = (y_1*(-y1));
-	  mat(2,0) = x2;mat(2,1) = y2;mat(2,2) = 1;mat(2,3) = 0; mat(2,4) = 0; mat(2,5) = 0;mat(2,6) = (-x2*x_2);mat(2,7) = (x_2*(-y2));
-	  mat(3,0) = 0; mat(3,1) = 0; mat(3,2) = 0;mat(3,3) = x2;mat(3,4) = y2;mat(3,5) = 1;mat(3,6) = (-x2*y_2);mat(3,7) = (y_2*(-y2));
-	  mat(4,0) = x3;mat(4,1) = y3;mat(4,2) = 1;mat(4,3) = 0; mat(4,4) = 0; mat(4,5) = 0;mat(4,6) = (-x3*x_3);mat(4,7) = (x_3*(-y3));
-	  mat(5,0) = 0; mat(5,1) = 0; mat(5,2) = 0;mat(5,3) = x3;mat(5,4) = y3;mat(5,5) = 1;mat(5,6) = (-x3*y_3);mat(5,7) = (y_3*(-y3));
-	  mat(6,0) = x4;mat(6,1) = y4;mat(6,2) = 1;mat(6,3) = 0; mat(6,4) = 0; mat(6,5) = 0;mat(6,6) = (-x4*x_4);mat(6,7) = (x_4*(-y4));
-	  mat(7,0) = 0; mat(7,1) = 0; mat(7,2) = 0;mat(7,3) = x4;mat(7,4) = y4;mat(7,5) = 1;mat(7,6) = (-x4*y_4);mat(7,7) = (y_4*(-y4));	
+	  mat(0,0) = x1;mat(1,0) = y1;mat(2,0) = 1;mat(3,0) = 0; mat(4.0) = 0; mat(5.0) = 0;mat(6.0) = (-x1*x_1);mat(7,0) = (x_1*(-y1));
+	  mat(0,1) = 0; mat(1,1) = 0; mat(2,1) = 0;mat(3,1) = x1;mat(4,1) = y1;mat(5,1) = 1;mat(6,1) = (-x1*y_1);mat(7,1) = (y_1*(-y1));
+	  mat(0,2) = x2;mat(1,2) = y2;mat(2,2) = 1;mat(3,2) = 0; mat(4,2) = 0; mat(5,2) = 0;mat(6,2) = (-x2*x_2);mat(7,2) = (x_2*(-y2));
+	  mat(0,3) = 0; mat(1,3) = 0; mat(2,3) = 0;mat(3,3) = x2;mat(4,3) = y2;mat(5,3) = 1;mat(6,3) = (-x2*y_2);mat(7,3) = (y_2*(-y2));
+	  mat(0,4) = x3;mat(1,4) = y3;mat(2,4) = 1;mat(3,4) = 0; mat(4,4) = 0; mat(5,4) = 0;mat(6,4) = (-x3*x_3);mat(7,4) = (x_3*(-y3));
+	  mat(0,5) = 0; mat(1,5) = 0; mat(2,5) = 0;mat(3,5) = x3;mat(4,5) = y3;mat(5,5) = 1;mat(6,5) = (-x3*y_3);mat(7,5) = (y_3*(-y3));
+	  mat(0,6) = x4;mat(1,6) = y4;mat(2,6) = 1;mat(3,6) = 0; mat(4,6) = 0; mat(5,6) = 0;mat(6,6) = (-x4*x_4);mat(7,6) = (x_4*(-y4));
+	  mat(0,7) = 0; mat(1,7) = 0; mat(2,7) = 0;mat(3,7) = x4;mat(4,7) = y4;mat(5,7) = 1;mat(6,7) = (-x4*y_4);mat(7,7) = (y_4*(-y4));
 	  CImg<double> inv = mat.invert(true);
-	  CImg<double> points(1,8,1,1,count[rndLst[0]].x2,count[rndLst[0]].y2,count[rndLst[1]].x2,count[rndLst[2]].y2,count[rndLst[2]].x2,count[rndLst[2]].y2,count[rndLst[3]].x2,count[rndLst[3]].y2);
-	  mat*=points;
-	  cout<<mat(0,0)<<" "<<mat(0,1)<<" "<<mat(0,2)<<" "<<mat(0,3)<<" "<<mat(0,4)<<" "<<mat(0,5)<<" "<<mat(0,6)<<" "<<mat(0,7)<<endl;
-	  CImg<double> input_image(inputFile.c_str());
-	  CImg<double> homog(3,3,1,1,mat(0,0),mat(0,1),mat(0,2),mat(0,3),mat(0,4),mat(0,5),mat(0,6),mat(0,7),1);
-	  CImg<double> homeInv = homog.invert(true);
+	  CImg<double> points(1,8,1,1,x_1,y_1,x_2,y_2,x_3,y_3,x_4,y_4);
+	  //inv =matMult(inv,points);
+	  inv*=points;
+	  CImg<double> homog(3,3,1,1,inv(0,0),inv(1,0),inv(2,0),inv(3,0),inv(4,0),inv(5,0),inv(6,0),inv(7,0),1.0);
+	  //cout<<inv(0,0)<<" "<<inv(0,1)<<" "<<inv(0,2)<<" "<<inv(0,3)<<" "<<inv(0,4)<<" "<<inv(0,5)<<" "<<inv(0,6)<<" "<<inv(0,7)<<endl;
+	  CImg<double> homeInv = homog;
+	  homeInv.invert(true);
 	  double err=0;
 	   for(int index =0;index<count.size();index++){
-	    int x = (homeInv(0,0)*count[index].x1) + (homeInv(0,1)*count[index].y1) + homeInv(0,2);
-	    int y = (homeInv(1,0)*count[index].x1)+ (homeInv(1,1)*count[index].y1) + homeInv(1,2);
-	    int w = (homeInv(2,0)*count[index].x1)+ (homeInv(2,1)*count[index].y1) + homeInv(2,2);
+	    double x = (homeInv(0,0)*count[index].x1) + (homeInv(0,1)*count[index].y1) + homeInv(0,2);
+	    double y = (homeInv(1,0)*count[index].x1)+ (homeInv(1,1)*count[index].y1) + homeInv(1,2);
+	    double w = (homeInv(2,0)*count[index].x1)+ (homeInv(2,1)*count[index].y1) + homeInv(2,2);
 	    if(w!=0){
 	      x=x/w;
 	      y=y/w;
 	      double d = sqrt(((x-count[index].x2)*(x-count[index].x2))+((y-count[index].y2)*(y-count[index].y2)));
 	      err+=d;
-	    } 
+	      } 
 	   }
-	  Error e = {mat,err};
-	  errorlist.push_back(e);
+	   if(err!=0){
+	     struct Error e = {homog,err};
+	     errorlist.push_back(e);
+	   }
 	}
 	vector<Error>::iterator minError = std::min_element(errorlist.begin(),errorlist.end(),compHomo);
-	CImg<double> homog(3,3,1,1,minError->homograp(0,0),minError->homograp(0,1),minError->homograp(0,2),minError->homograp(0,3),minError->homograp(0,4),minError->homograp(0,5),minError->homograp(0,6),minError->homograp(0,7),1);
-	cout<<minError->homograp(0,0)<<" "<<minError->homograp(0,1)<<" "<<minError->homograp(0,2)<<" "<<minError->homograp(0,3)<<" "<<minError->homograp(0,4)<<" "<<minError->homograp(0,5)<<" "<<minError->homograp(0,6)<<" "<<minError->homograp(0,7)<<endl;
-	transform(input_image2,homog);
+	CImg<double> homog = minError->homograp;
+	//cout<<minError->error<<endl;
+	//cout<<minError->homograp(0,0)<<" "<<minError->homograp(0,1)<<" "<<minError->homograp(0,2)<<" "<<minError->homograp(1,0)<<" "<<minError->homograp(1,1)<<" "<<minError->homograp(1,2)<<" "<<minError->homograp(2,0)<<" "<<minError->homograp(2,1)<<endl;
+	transform(input_image,homog);
       }
     else if(part == "part3")
       {
 	// do something here!
 	CImg<double> input_image(inputFile.c_str());
 	CImg<double> homog(3,3,1,1);
-	homog(0,0) = 0.907;homog(0,1) = 0.258;homog(0,2) = -182;
-	homog(1,0) = -0.153;homog(1,1) = 1.44;homog(1,2) = 58;
-	homog(2,0) = -0.000306;homog(2,1) = 0.000731;homog(2,2) = 1;
+	homog(0,0) = 0.907;homog(1,0) = 0.258;homog(2,0) = -182;
+	homog(0,1) = -0.153;homog(1,1) = 1.44;homog(2,1) = 58;
+	homog(0,2) = -0.000306;homog(1,2) = 0.000731;homog(2,2) = 1;
 	transform(input_image,homog);
 	
       }
