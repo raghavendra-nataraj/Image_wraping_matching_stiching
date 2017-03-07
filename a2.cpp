@@ -13,7 +13,9 @@
 #include <string>
 #include <vector>
 #include <Sift.h>
-
+#include <map>
+#include <iomanip>
+#include <sstream>
 //Use the cimg namespace to access the functions easily
 using namespace cimg_library;
 using namespace std;
@@ -30,6 +32,13 @@ struct line {
   double x2;
   double y1;
   double y2;
+};
+
+
+struct bestSift {
+  int sift1;
+  int sift2;
+  int matches;
 };
 
 
@@ -55,6 +64,8 @@ bool sortPoint(point p1,point p2){
 bool sortImages(matStr i1,matStr i2){
   return i1.matches>i2.matches;
 }
+
+
 
 
 CImg<double> transform(CImg<double> input_image,CImg<double> homog){
@@ -94,6 +105,97 @@ CImg<double> matMult(CImg<double> mat1,CImg<double> mat2){
   //cout<<result(0,0)<<" "<<result(1,0)<<" "<<result(2,0)<<" "<<result(3,0)<<" "<<result(4,0)<<" "<<result(5,0)<<" "<<result(6,0)<<" "<<result(7,0)<<endl;
   return result;
 }
+
+vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2,int w,int k,int iterNum ){
+  CImg<double> final_image;
+  CImg<double> gImg1 = input_image.get_RGBtoHSI().get_channel(2);
+  CImg<double> gImg2 = input_image2.get_RGBtoHSI().get_channel(2);
+  final_image.append(input_image);
+  final_image.append(input_image2);
+  vector<SiftDescriptor> img1 = Sift::compute_sift(gImg1);
+  vector<SiftDescriptor> img2 = Sift::compute_sift(gImg2);
+  std::map<string, bestSift> siftMatch;
+  for(int randIter = 0;randIter<iterNum;randIter++){
+    vector<int> rndLst;
+    for(;rndLst.size()<k;){
+      int randnum = rand()%128;
+      if(std::find(rndLst.begin(),rndLst.end(),randnum)==rndLst.end())
+	rndLst.push_back(randnum);
+    }
+    for(int i=0;i<img1.size();i++){
+      for(int j=0;j<img2.size();j++){
+	bool mat = true;
+	for(int k=0;k<rndLst.size();k++){
+	  int index = rndLst[k];
+	  //cout<<(int)floor(img1[i].descriptor[index])/w<<" "<<(int)floor(img2[j].descriptor[index])/w;
+	  if((int)floor(img1[i].descriptor[index])/w != (int)floor(img2[j].descriptor[index])/w){
+	    mat = false;
+	    break;
+	    
+	  }
+	}
+	if(mat){
+	  string key;
+	  std::ostringstream ostr;
+	  ostr <<i<<"_"<<j;
+	  string name = ostr.str();
+	  map<string, bestSift>::iterator it = siftMatch.find(name);
+	  if(it!=siftMatch.end()){
+	    struct bestSift bSift = siftMatch[name]; bSift.matches+=1; siftMatch[name] = bSift;
+	  }else{
+	    struct bestSift bSift = {i,j,1}; siftMatch[name] = bSift;
+	  }
+	}
+      }
+    }
+  }
+  int thresholdMatch=0;
+  map<string, bestSift>::iterator it;
+  vector<SiftDescriptor> imgDesc1;
+  vector<int> addDes1;
+  vector<SiftDescriptor> imgDesc2;
+  vector<int> addDes2;
+  for(it=siftMatch.begin();it!=siftMatch.end();it++){
+    struct bestSift bs = it->second;
+    if(bs.matches>=thresholdMatch){
+      if(find(addDes1.begin(),addDes1.end(),bs.sift1)==addDes1.end()){
+	addDes1.push_back(bs.sift1);
+	imgDesc1.push_back(img1[bs.sift1]);
+      }
+      if(find(addDes2.begin(),addDes2.end(),bs.sift2)==addDes2.end()){
+	addDes2.push_back(bs.sift2);
+	imgDesc2.push_back(img2[bs.sift2]);
+      }
+    }
+  }
+  //cout<<imgDesc1.size()<<" "<<imgDesc2.size()<<endl;
+  vector<line> lines;
+  for(int i=0; i<imgDesc1.size(); i++)
+    {
+      vector<point> scores;
+      for(int j = 0; j<imgDesc2.size();j++){
+	double score = 0;
+	for(int k=0;k<128;k++){
+	  score+= ((imgDesc1[i].descriptor[k] - imgDesc2[j].descriptor[k]) * (imgDesc1[i].descriptor[k] - imgDesc2[j].descriptor[k]));
+	}
+	score = sqrt(score);
+	point p = {imgDesc2[j].col,imgDesc2[j].row,score};
+	scores.push_back(p);
+      }
+      sort(scores.begin(),scores.end(),sortPoint);
+      point p1 = scores[0];
+      point p2 = scores[1];
+      if(p1.score/p2.score<0.8){
+	const unsigned char color[] = { 255,128,64 };
+	final_image.draw_line(imgDesc1[i].col,imgDesc1[i].row,input_image.width()+p1.x,p1.y,color);
+	struct line temp = {imgDesc1[i].col,p1.x,imgDesc1[i].row,p1.y};
+	lines.push_back(temp);
+      }
+    }
+  final_image.save("result.png");
+  return lines;
+}
+
 
 vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
   CImg<double> final_image;
@@ -189,10 +291,6 @@ CImg<double> calculateHomography(CImg<double> input_image,CImg<double> input_ima
   return  homogres;
 }
 
-
-
-
-
 int main(int argc, char **argv)
 {
   try {
@@ -230,7 +328,22 @@ int main(int argc, char **argv)
       }
     else if(part == "part2")
       {
-
+	int k=50,w =50,randNum=200;
+	vector<matStr> matC;
+	CImg<double> input_image(inputFile.c_str());
+	for (int i=3;i<argc;i++){
+	  CImg<double> input_image2(argv[i]);
+	  vector<line> count = match2Images(input_image,input_image2,w,k,randNum);
+	  struct matStr temp= {string(argv[i]),count.size()};
+	  matC.push_back(temp);
+	}
+	sort(matC.begin(),matC.end(),sortImages);
+	vector<matStr>::iterator it;
+	cout<<matC.size()<<endl;
+	for(it = matC.begin();it != matC.end();it++){
+	  cout<<it->fileName<<endl;
+	}
+	cout<<endl;
       }
     else if(part == "part3")
       {
