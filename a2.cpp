@@ -242,7 +242,7 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
 CImg<double> calculateHomography(CImg<double> input_image,CImg<double> input_image2){
   vector<Error> errorlist;
   vector<line> count = match2Images(input_image,input_image2);
-  cout<<count.size()<<endl;
+  //cout<<count.size()<<endl;
   if(count.size()<4)
     throw std::overflow_error("Zero matching point\nIncrease Threshold\n");
   for(int i=0;i<200;i++){
@@ -334,6 +334,49 @@ int main(int argc, char **argv)
       }
     else if(part == "part2")
       {
+	/*CImg<double> input_image(inputFile.c_str());
+	vector<matStr> matC;
+	// do something here!
+	for(int in=3;in<argc;in++){
+	  string imagename(argv[in]);
+	  CImg<double> input_image2(imagename.c_str());
+	  CImg<double> final_image;
+	  CImg<double> gImg1 = input_image.get_RGBtoHSI().get_channel(2);
+	  CImg<double> gImg2 = input_image2.get_RGBtoHSI().get_channel(2);
+	  vector<SiftDescriptor> img1 = Sift::compute_sift(gImg1);
+	  final_image.append(input_image);
+	  final_image.append(input_image2);
+	  CImg<double> homog = calculateHomography(input_image,input_image2);
+	  vector<line> count = match2Images(input_image,input_image2);
+	  const unsigned char color[] = { 255,128,64 };
+	  double score = 0.0;
+	  for(int i=0; i<count.size(); i++)
+	    {
+	      CImg<double> inv = homog.invert(true);
+	      double x = (inv(0,0)*count[i].x1) + (inv(1,0)*count[i].y1) + inv(2,0);
+	      double y = (inv(0,1)*count[i].x1)+ (inv(1,1)*count[i].y1) + inv(2,1) ;
+	      double w = (inv(0,2)*count[i].x1)+ (inv(1,2)*count[i].y1)+inv(2,2);
+	      if(w!=0){
+		x=x/w;
+		y=y/w;
+		score+= sqrt(((x-count[i].x2) * (x-count[i].x2))+((y-count[i].y2) * (y-count[i].y2)));
+		if(x>=0 && y>=0 && x<input_image2.width() && y<input_image2.height()){
+		  final_image.draw_line(count[i].x1,count[i].y1,input_image.width()+x,y,color);
+		}	
+	      }
+       	    }
+	  final_image.save("test.png");
+	  struct matStr temp= {string(argv[in]),(int)score};
+	  matC.push_back(temp);
+	  homog(1,1,1,3,0);
+	}
+	sort(matC.begin(),matC.end(),sortImages);
+	vector<matStr>::iterator it;
+	//cout<<matC.size()<<endl;
+	for(it = matC.begin();it != matC.end();it++){
+	  cout<<it->fileName<<endl;
+	}
+	cout<<endl;*/
 	int k=50,w =50,randNum=200;
 	vector<matStr> matC;
 	CImg<double> input_image(inputFile.c_str());
