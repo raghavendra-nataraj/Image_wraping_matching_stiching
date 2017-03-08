@@ -20,6 +20,7 @@
 using namespace cimg_library;
 using namespace std;
 
+#define THRESHOLD 0.8
 
 struct point{
   double x;
@@ -168,13 +169,13 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2,i
       }
     }
   }
-  //cout<<imgDesc1.size()<<" "<<imgDesc2.size()<<endl;
+  cout<<imgDesc1.size()<<" "<<imgDesc2.size()<<endl;
   vector<line> lines;
   for(int i=0; i<imgDesc1.size(); i++)
     {
       vector<point> scores;
       for(int j = 0; j<imgDesc2.size();j++){
-	double score = 0;
+	double score = 0.0;
 	for(int k=0;k<128;k++){
 	  score+= ((imgDesc1[i].descriptor[k] - imgDesc2[j].descriptor[k]) * (imgDesc1[i].descriptor[k] - imgDesc2[j].descriptor[k]));
 	}
@@ -185,7 +186,7 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2,i
       sort(scores.begin(),scores.end(),sortPoint);
       point p1 = scores[0];
       point p2 = scores[1];
-      if(p1.score/p2.score<0.8){
+      if(p2.score!=0 && p1.score/p2.score<THRESHOLD){
 	const unsigned char color[] = { 255,128,64 };
 	final_image.draw_line(imgDesc1[i].col,imgDesc1[i].row,input_image.width()+p1.x,p1.y,color);
 	struct line temp = {imgDesc1[i].col,p1.x,imgDesc1[i].row,p1.y};
@@ -195,6 +196,7 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2,i
   final_image.save("result.png");
   return lines;
 }
+
 
 
 vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
@@ -222,28 +224,33 @@ vector<line> match2Images(CImg<double> &input_image,CImg<double> &input_image2){
       sort(scores.begin(),scores.end(),sortPoint);
       point p1 = scores[0];
       point p2 = scores[1];
-      if(p1.score/p2.score<0.6){
+      if(p1.score/p2.score<THRESHOLD){
 	const unsigned char color[] = { 255,128,64 };
 	final_image.draw_line(img1[i].col,img1[i].row,input_image.width()+p1.x,p1.y,color);
 	struct line temp = {img1[i].col,p1.x,img1[i].row,p1.y};
 	lines.push_back(temp);
       }
     }
-  final_image.save("result.png");
+  //final_image.save("result.png");
   return lines;
 }
+
+
 
 
 
 CImg<double> calculateHomography(CImg<double> input_image,CImg<double> input_image2){
   vector<Error> errorlist;
   vector<line> count = match2Images(input_image,input_image2);
+  cout<<count.size()<<endl;
+  if(count.size()<4)
+    throw std::overflow_error("Zero matching point\nIncrease Threshold\n");
   for(int i=0;i<200;i++){
     vector<int> rndLst;
     for(;rndLst.size()<4;){
       int randnum = rand()%count.size();
       if(std::find(rndLst.begin(),rndLst.end(),randnum)==rndLst.end())
-	rndLst.push_back(randnum);
+	  rndLst.push_back(randnum);
     }
     double x1 = count[rndLst[0]].x1;double x_1 = count[rndLst[0]].x2;double y1 = count[rndLst[0]].y1;double y_1 = count[rndLst[0]].y2;
     double x2 = count[rndLst[1]].x1;double x_2 = count[rndLst[1]].x2;double y2 = count[rndLst[1]].y1;double y_2 = count[rndLst[1]].y2;
@@ -263,32 +270,31 @@ CImg<double> calculateHomography(CImg<double> input_image,CImg<double> input_ima
     //inv =matMult(inv,points);
     inv*=points;
     CImg<double> homog(3,3,1,1,inv(0,0),inv(1,0),inv(2,0),inv(3,0),inv(4,0),inv(5,0),inv(6,0),inv(7,0),1.0);
-    //homog.print();
     //cout<<inv(0,0)<<" "<<inv(0,1)<<" "<<inv(0,2)<<" "<<inv(0,3)<<" "<<inv(0,4)<<" "<<inv(0,5)<<" "<<inv(0,6)<<" "<<inv(0,7)<<endl;
     CImg<double> homeInv = homog;
     homeInv.invert(true);
     double err=0;
-    for(int index =0;index<count.size();index++){
-      double x = (homeInv(0,0)*count[index].x1) + (homeInv(0,1)*count[index].y1) + homeInv(0,2);
-      double y = (homeInv(1,0)*count[index].x1)+ (homeInv(1,1)*count[index].y1) + homeInv(1,2);
-      double w = (homeInv(2,0)*count[index].x1)+ (homeInv(2,1)*count[index].y1) + homeInv(2,2);
-      if(w!=0){
-	x=x/w;
-	y=y/w;
-	double d = sqrt(((x-count[index].x2)*(x-count[index].x2))+((y-count[index].y2)*(y-count[index].y2)));
-	err+=d;
-      }
-    }
-    //cout<<err<<endl;
-    if(err!=0){
-      struct Error e = {homog,err};
-      errorlist.push_back(e);
-    }
+	   for(int index =0;index<count.size();index++){
+	     double x = (homeInv(0,0)*count[index].x1) + (homeInv(0,1)*count[index].y1) + homeInv(0,2);
+	     double y = (homeInv(1,0)*count[index].x1)+ (homeInv(1,1)*count[index].y1) + homeInv(1,2);
+	     double w = (homeInv(2,0)*count[index].x1)+ (homeInv(2,1)*count[index].y1) + homeInv(2,2);
+	     if(w!=0){
+	       x=x/w;
+	       y=y/w;
+	       double d = sqrt(((x-count[index].x2)*(x-count[index].x2))+((y-count[index].y2)*(y-count[index].y2)));
+	       err+=d;
+	     } 
+	   }
+	   if(err!=0){
+	     struct Error e = {homog,err};
+	     errorlist.push_back(e);
+	   }
   }
   vector<Error>::iterator minError = std::min_element(errorlist.begin(),errorlist.end(),compHomo);
-  //cout<<"dasd"<<minError->error<<endl;
-  CImg<double> homogres(minError->homograp);
-  return  homogres;
+	CImg<double> homog = minError->homograp;
+	//homog.print();
+	CImg<double> homogres(minError->homograp);
+	return  homogres;
 }
 
 int main(int argc, char **argv)
@@ -353,7 +359,8 @@ int main(int argc, char **argv)
 	homog(0,0) = 0.907;homog(1,0) = 0.258;homog(2,0) = -182;
 	homog(0,1) = -0.153;homog(1,1) = 1.44;homog(2,1) = 58;
 	homog(0,2) = -0.000306;homog(1,2) = 0.000731;homog(2,2) = 1;
-	transform(input_image,homog);*/
+	CImg<double> output_image = transform(input_image,homog);
+	output_image.save("result.png1");*/
 	CImg<double> input_image(inputFile.c_str());
 	// do something here!
 	for(int i=3;i<argc;i++){
@@ -368,7 +375,7 @@ int main(int argc, char **argv)
 	  homog(1,1,1,3,0);
 	  output_image(1,1,1,3,0);
 	  const double val = 0.0;
-	}
+	  }
       }
     else
       throw std::string("unknown part!");
